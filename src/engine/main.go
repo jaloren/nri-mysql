@@ -1,41 +1,32 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"log"
-	"os"
+	"strings"
 )
 
-func lex(filePath string) ([]*token, error){
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	var tokens []*token
-
-	scanner := bufio.NewScanner(file)
-
-	for scanner.Scan() {
-		if isEmptyLine(scanner.Bytes()){
+func build(tokens []*token) string{
+	body := strings.Builder{}
+	for idx, t := range tokens{
+		if isHeader(idx,t, tokens) {
+			return body.String()
+		}
+		if t.kind != PARAGRAPH {
 			continue
 		}
-		t := &token{literal: scanner.Text()}
-		if t.literal == EOI {
-			return tokens, nil
-		}
-		if isDashedLine(t.literal) {
-			t.kind = DASHED
-		} else if isUpperLine(t.literal) {
-			t.kind = UPPER
-		} else {
-			t.kind = PARAGRAPH
-		}
-		tokens = append(tokens, t)
+		body.WriteString(t.literal + "\n")
 	}
-	return tokens, nil
+	return body.String()
+}
+
+func parse(tokens []*token) {
+	//sections := make(map[string]string)
+	for idx, t := range tokens {
+		if isHeader(idx, t, tokens){
+			fmt.Println(t.literal)
+		}
+	}
 }
 
 func main() {
@@ -43,9 +34,5 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	for _, t := range tokens {
-		if t.kind == UPPER {
-			fmt.Println(t.literal)
-		}
-	}
+	parse(tokens)
 }
