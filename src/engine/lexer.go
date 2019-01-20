@@ -5,18 +5,20 @@ import (
 	"bytes"
 	"os"
 	"regexp"
+	"strings"
 )
 
 var (
-	nameRegex = regexp.MustCompile(`^[A-Z]+[A-Z\s]*$`)
+	nameRegex = regexp.MustCompile(`^[A-Z]+[A-Z\s/]*$`)
 )
 
 const (
 	UPPER TokenType = iota
 	DASHED
 	PARAGRAPH
+	DASHED_UPPPER
 
-	EOI = "END OF INNODB MONITOR OUTPUT"
+	EOM = "END OF INNODB MONITOR OUTPUT"
 )
 
 type TokenType int
@@ -44,13 +46,6 @@ func isEmptyLine(line []byte) bool {
 	return len(noSpace) == 0
 }
 
-func isHeader(idx int, t *token, tokens []*token) bool {
-	if len(tokens) < (idx+1) || idx == 0 {
-		return false
-	}
-	return tokens[idx-1].kind == DASHED && t.kind == UPPER && tokens[idx+1].kind == DASHED
-}
-
 func lex(filePath string) ([]*token, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -65,13 +60,15 @@ func lex(filePath string) ([]*token, error) {
 			continue
 		}
 		t := &token{literal: scanner.Text()}
-		if t.literal == EOI {
+		if t.literal == EOM {
 			return tokens, nil
 		}
 		if isDashedLine(t.literal) {
 			t.kind = DASHED
 		} else if isUpperLine(t.literal) {
 			t.kind = UPPER
+		} else if strings.HasPrefix(t.literal, "-"){
+			t.kind = DASHED_UPPPER
 		} else {
 			t.kind = PARAGRAPH
 		}
