@@ -2,106 +2,50 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
-	"io"
 	"log"
 	"os"
-	"regexp"
 )
 
-const (
-	dash = '-'
-)
-
-var (
-	nameRegex = regexp.MustCompile(`^[A-Z]+[\s]+[A-Z\s]*$`)
-)
-
-type output struct {
-	sections []section
-	scanner  *bufio.Scanner
-}
-
-type section struct {
-	header, body string
-}
-
-func NewOutput(reader io.Reader) *output {
-	return &output{
-		scanner: bufio.NewScanner(reader),
+func lex(filePath string) ([]*token, error){
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
 	}
-}
+	defer file.Close()
 
-func (o *output) skipScan() bool{
-	o.skipEmptyLines()
-	return o.scanner.Scan()
-}
+	var tokens []*token
 
-func(o *output) skipEmptyLines(){
-	line := o.scanner.Bytes()
-	noSpace := bytes.TrimSpace(line)
-	if len(noSpace) == 0 {
-		if ! o.scanner.Scan() {
-			return
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		if isEmptyLine(scanner.Bytes()){
+			continue
 		}
-		o.skipEmptyLines()
-	}
-}
-
-func (o *output) isDashedLine() bool{
-	line := o.scanner.Text()
-	for _, char := range  line {
-		if char != dash {
-			return false
+		t := &token{literal: scanner.Text()}
+		if t.literal == EOI {
+			return tokens, nil
 		}
-	}
-	return true
-}
-
-func (o *output) getSectionHdr() (string, bool) {
-	if !o.isDashedLine() {
-		return "", false
-	}
-	o.skipScan()
-	hdr := o.scanner.Text()
-	o.skipScan()
-	if !o.isDashedLine() {
-		return "", false
-	}
-	if hdr == "" {
-		return "", false
-	}
-	return hdr, true
-}
-
-func (o *output) parse() () {
-	for o.skipScan() {
-		section := &section{}
-		hdr, ok := o.getSectionHdr()
-		if ok {
-			section.header = hdr
-			fmt.Println(hdr)
+		if isDashedLine(t.literal) {
+			t.kind = DASHED
+		} else if isUpperLine(t.literal) {
+			t.kind = UPPER
+		} else {
+			t.kind = PARAGRAPH
 		}
+		tokens = append(tokens, t)
 	}
-
-
-	//scanner.Scan()
-	//sectionHdr := scanner.Text()
-	//if re.MatchString(sectionHdr){
-	//	scanner.Scan()
-	//	return sectionHdr, true
-	//}
-	//return "", false
+	return tokens, nil
 }
 
 func main() {
-	file, err := os.Open("engine-output.txt")
+	tokens, err := lex("engine-output.txt")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer file.Close()
-	output := NewOutput(file)
-	output.parse()
-
+	for _, t := range tokens {
+		if t.kind == UPPER {
+			fmt.Println(t.literal)
+		}
+	}
 }
